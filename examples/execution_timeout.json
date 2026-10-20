@@ -1,0 +1,17 @@
+{
+  "execution": {
+    "error": {
+      "message": "The connection timed out calling http://127.0.0.1:8787/v1/host-metrics",
+      "name": "NodeApiError",
+      "stack": "NodeApiError: The connection timed out\n    at ExecuteContext (workflow)"
+    },
+    "id": "231",
+    "lastNodeExecuted": "HTTP Get Metrics",
+    "mode": "trigger",
+    "url": "https://n8n.example.com/workflow/wf-daily/executions/231"
+  },
+  "workflow": {
+    "id": "wf-daily",
+    "name": "Daily server report email"
+  }
+}

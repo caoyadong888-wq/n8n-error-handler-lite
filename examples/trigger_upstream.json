@@ -1,0 +1,13 @@
+{
+  "trigger": {
+    "error": {
+      "description": "The service is currently unavailable.",
+      "message": "503 Service unavailable - try again later",
+      "name": "NodeApiError"
+    }
+  },
+  "workflow": {
+    "id": "wf-rss",
+    "name": "RSS digest"
+  }
+}

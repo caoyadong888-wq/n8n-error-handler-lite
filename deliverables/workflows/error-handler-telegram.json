@@ -1,0 +1,192 @@
+{
+  "name": "n8n error handler telegram",
+  "nodes": [
+    {
+      "id": "notes",
+      "name": "Setup Notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -480,
+        40
+      ],
+      "parameters": {
+        "content": "## Error handler Telegram (subset)\n\nError Trigger is the first node. A manual run does not start it. Check upstream docs for how to select this workflow as another workflow's error workflow.\n\nClassify Error runs classify_error.py. Telegram credential id PLACEHOLDER_TELEGRAM, chat id PLACEHOLDER_CHAT_ID. No bot token is stored in this file.\n",
+        "height": 460,
+        "width": 420,
+        "color": 4
+      }
+    },
+    {
+      "id": "err",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        40,
+        180
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "vars",
+      "name": "Set Variables",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        300,
+        180
+      ],
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": true,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "helper_path",
+              "name": "helper_path",
+              "value": "/opt/n8n-error-handler/classify_error.py",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "encode",
+      "name": "Encode Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        180
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const cfg = $('Set Variables').first().json;\nconst raw = $input.first().json || {};\nconst copy = {};\nfor (const key of Object.keys(raw)) {\n  if (key === 'helper_path' || key === 'log_path' || key === 'write_log') continue;\n  copy[key] = raw[key];\n}\nconst payload = Buffer.from(JSON.stringify(copy), 'utf8').toString('base64');\nreturn [{\n  json: {\n    helper_path: String(cfg.helper_path || ''),\n    log_path: String(cfg.log_path || ''),\n    write_log: String(cfg.write_log || ''),\n    payload_b64: payload\n  }\n}];\n"
+      }
+    },
+    {
+      "id": "classify",
+      "name": "Classify Error",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        840,
+        180
+      ],
+      "parameters": {
+        "command": "={{ 'python3 ' + JSON.stringify($json.helper_path) + ' classify --input-b64 ' + JSON.stringify($json.payload_b64) }}"
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "parse",
+      "name": "Parse Class",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        180
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const item = $input.first().json || {};\nconst raw = String(item.stdout || item.output || '');\nlet row;\ntry {\n  row = JSON.parse(raw);\n} catch (error) {\n  row = {\n    subject: '[n8n error][medium][unknown] unnamed workflow',\n    text: String(error) + '\\n' + raw,\n    html: '<p>classify failed</p>',\n    telegram_text: String(error)\n  };\n}\nif (!row.subject) row.subject = '[n8n error] unclassified';\nif (!row.text) row.text = raw;\nif (!row.html) row.html = '<p>' + String(row.text) + '</p>';\nif (!row.telegram_text) row.telegram_text = row.text;\nif (!row.record_b64) {\n  row.record_b64 = Buffer.from(JSON.stringify(row), 'utf8').toString('base64');\n}\nreturn [{ json: row }];\n"
+      }
+    },
+    {
+      "id": "telegram",
+      "name": "Send Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1400,
+        180
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "PLACEHOLDER_CHAT_ID",
+        "text": "={{ $json.telegram_text }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "PLACEHOLDER_TELEGRAM",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Set Variables",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Variables": {
+      "main": [
+        [
+          {
+            "node": "Encode Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Encode Payload": {
+      "main": [
+        [
+          {
+            "node": "Classify Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify Error": {
+      "main": [
+        [
+          {
+            "node": "Parse Class",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Class": {
+      "main": [
+        [
+          {
+            "node": "Send Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
